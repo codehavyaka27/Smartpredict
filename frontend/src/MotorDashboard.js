@@ -3,29 +3,31 @@ import React, { useState, useRef } from 'react';
 import BusinessImpact from './BusinessImpact';
 import ReportGenerator from './ReportGenerator';
 import RecommendationGuide from './RecommendationGuide';
-import DriftAnalysisChart from './DriftAnalysisChart';
+import MaintenanceTicketModal from './MaintenanceTicketModal';
+import DriftAnalysisModal from './DriftAnalysisModal';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import './App.css'; // Reuse the same styles
 
 function MotorDashboard() {
-    const reportContentRef = useRef(); // Ref for the PDF content area
+    const reportContentRef = useRef();
     const [features, setFeatures] = useState({
-        air_temperature_k: 298.1,
-        process_temperature_k: 308.6,
-        rotational_speed_rpm: 1551,
-        torque_nm: 42.8,
-        tool_wear_min: 0,
+        air_temperature_k: '',
+        process_temperature_k: '',
+        rotational_speed_rpm: '',
+        torque_nm: '',
+        tool_wear_min: '',
     });
 
     const [prediction, setPrediction] = useState(null);
     const [error, setError] = useState('');
     const [shapData, setShapData] = useState(null);
-    const [isTicketModalOpen, setIsTicketModalOpen] = useState(false); // For ticket modal
+    const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+    const [isDriftModalOpen, setIsDriftModalOpen] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFeatures(prev => ({ ...prev, [name]: parseFloat(value) }));
+        setFeatures(prev => ({ ...prev, [name]: value === '' ? '' : parseFloat(value) }));
     };
 
     const getPrediction = async () => {
@@ -45,97 +47,103 @@ function MotorDashboard() {
             console.error(err);
         }
     };
+    
+    const sensorDataForChart = [
+      { name: 'Rotational Speed', value: features.rotational_speed_rpm, unit: 'rpm' },
+      { name: 'Torque', value: features.torque_nm, unit: 'Nm' },
+      { name: 'Tool Wear', value: features.tool_wear_min, unit: 'min' },
+    ];
 
     return (
-        <div className="container mx-auto p-4 md:p-8 max-w-7xl">
-            {/* --- HEADER SECTION: Title and Download Button --- */}
+        <div className="px-8 py-12">
+            {/* --- HEADER SECTION --- */}
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-3xl font-bold text-gray-800">Motor MOT-007 - Health Analysis</h2>
-                <ReportGenerator machineId="Motor-MOT-007" reportContentRef={reportContentRef} />
+                <h1 className="text-5xl font-black text-slate-900">Motor MOT-007</h1>
+                <div className="flex space-x-4">
+                    <button onClick={() => setIsDriftModalOpen(true)} className="font-bold text-sky-600 hover:text-sky-500 transition-colors">
+                        Check for Model Drift
+                    </button>
+                    <ReportGenerator machineId="Motor-MOT-007" reportContentRef={reportContentRef} />
+                </div>
             </div>
 
             {/* --- WRAPPER FOR PDF CONTENT --- */}
             <div ref={reportContentRef} className="p-4 bg-white">
-                {/* Main two-column layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-                    {/* --- LEFT COLUMN: Prediction & Inputs --- */}
-                    <div className="bg-white border border-gray-200 rounded-lg shadow-md p-6 h-fit">
-                        <h3 className="text-xl font-semibold mb-4 text-gray-800">Live Sensor Input</h3>
-                        <p className="text-gray-600 mb-6">Enter the latest sensor readings to predict the motor's health status.</p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {Object.keys(features).map(key => (
-                                <div key={key}>
-                                    <label className="text-sm font-medium text-gray-700 capitalize">{key.replace(/_/g, ' ')}</label>
-                                    <input
-                                        type="number" name={key} value={features[key]} onChange={handleChange} step="0.1"
-                                        className="w-full mt-1 p-2 bg-gray-50 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                    />
-                                </div>
-                            ))}
+                    {/* --- LEFT COLUMN: CONTROL PANEL & RESULTS --- */}
+                    <div className="space-y-6">
+                        {/* Box 1: Control Panel */}
+                        <div className="bg-white border border-slate-200 rounded-lg shadow-md p-6 h-fit">
+                            <h3 className="text-xl font-bold text-slate-900 mb-4">Live Sensor Input</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {Object.keys(features).map(key => (
+                                    <div key={key}>
+                                        <label className="text-sm font-medium text-slate-700 capitalize">{key.replace(/_/g, ' ')}</label>
+                                        <input
+                                            type="number" name={key} value={features[key]} onChange={handleChange} step="0.1"
+                                            className="w-full mt-1 p-2 bg-slate-50 border border-slate-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:outline-none"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <button onClick={getPrediction} className="mt-6 w-full bg-yellow-400 text-black font-bold uppercase py-3 rounded-none text-center hover:bg-yellow-500 transition-colors">
+                                Predict Health
+                            </button>
                         </div>
-
-                        <button onClick={getPrediction} className="mt-6 w-full bg-indigo-600 text-white font-bold py-3 rounded-md hover:bg-indigo-500 transition-colors">
-                            Predict Health
-                        </button>
-
+                        
+                        {/* Box 2: Prediction Result (appears after prediction) */}
                         {prediction && (
-                            <div className={`mt-6 p-4 rounded-lg border-l-4 ${prediction.status === 'At Risk' ? 'border-red-500 bg-red-50' : 'border-green-500 bg-green-50'}`}>
-                                <h3 className="font-bold text-lg text-gray-900">Prediction Result</h3>
+                            <div className={`p-6 rounded-lg border-l-4 ${prediction.status === 'At Risk' ? 'border-red-500 bg-red-50' : 'border-green-500 bg-green-50'}`}>
+                                <h3 className="font-bold text-lg text-slate-900">Prediction Result</h3>
                                 <p className="text-xl mt-2">
                                     Status: <span className={`font-extrabold ${prediction.status === 'At Risk' ? 'text-red-600' : 'text-green-600'}`}>{prediction.status}</span>
                                 </p>
                                 <p className="text-xl mt-1">
-                                    Health Score: <strong className="text-gray-900">{prediction.health_score} / 100</strong>
+                                    Health Score: <strong className="text-slate-900">{prediction.health_score} / 100</strong>
                                 </p>
-
-                                {/* --- THIS IS THE CRUCIAL PART --- */}
                                 {prediction.status === 'At Risk' && (
-                                  <button
-                                    onClick={() => setIsTicketModalOpen(true)}
-                                    className="mt-4 w-full bg-red-600 text-white font-bold py-2 rounded-md hover:bg-red-500 transition-all"
-                                  >
-                                    🎫 Create Maintenance Ticket
-                                  </button>
+                                    <button onClick={() => setIsTicketModalOpen(true)} className="mt-4 w-full bg-red-600 text-white font-bold py-2 rounded-md hover:bg-red-500">
+                                        🎫 Create Maintenance Ticket
+                                    </button>
                                 )}
                             </div>
                         )}
 
-                        {/* --- Business Impact Card --- */}
-                        {prediction && (
-                            <BusinessImpact
-                                status={prediction.status}
-                                costPerHourDowntime={50000}
-                                hoursToRepairFailure={8}
-                                costOfProactiveMaintenance={75000}
-                            />
-                        )}
- {/* --- ADD THIS NEW COMPONENT --- */}
-                        {prediction && (
-                            <RecommendationGuide
-                                machineType="motor"
-                                status={prediction.status}
-                            />
-                        )}
-                        {error && <p className="text-red-600 mt-4">{error}</p>}
+                        {/* Box 3 & 4: Business Impact and Recommendations now appear here */}
+                        {prediction && <BusinessImpact status={prediction.status} costPerHourDowntime={50000} hoursToRepairFailure={8} costOfProactiveMaintenance={75000} />}
+                        {prediction && <RecommendationGuide machineType="motor" status={prediction.status} />}
+
+                        {error && <p className="text-red-600 mt-4 text-center">{error}</p>}
                     </div>
 
-                    {/* --- RIGHT COLUMN: Visualizations --- */}
+                    {/* --- RIGHT COLUMN: VISUALIZATIONS --- */}
                     <div className="space-y-8">
-                        <DriftAnalysisChart machineType="motor" featureName="Torque (Nm)" />
+                        {/* Live Data Chart is now here */}
+                        <div className="bg-white border border-slate-200 rounded-lg shadow-md p-6">
+                           <h3 className="text-xl font-bold text-slate-900 mb-4">Live Operational Data</h3>
+                           <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={sensorDataForChart}>
+                                    <CartesianGrid stroke="#e5e7eb" />
+                                    <XAxis dataKey="name" stroke="#6b7280" />
+                                    <YAxis stroke="#6b7280" />
+                                    <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e5e7eb' }} />
+                                    <Bar dataKey="value" fill="#0ea5e9" name="Sensor Reading" />
+                                </BarChart>
+                           </ResponsiveContainer>
+                        </div>
+                        
+                        {/* SHAP Chart appears here when needed */}
                         {shapData && (
                             <div className="bg-white border border-gray-200 rounded-lg shadow-md p-6">
-                                <h3 className="text-xl font-semibold mb-2 text-gray-800">Why is it "At Risk"?</h3>
-                                <p className="text-gray-600 mb-4">Explainable AI shows key factors driving the failure prediction.</p>
+                                <h3 className="text-xl font-semibold mb-2 text-gray-800">Why is it "At Risk"? (XAI)</h3>
                                 <ResponsiveContainer width="100%" height={300}>
                                     <BarChart data={shapData} layout="vertical" margin={{ top: 5, right: 20, left: 120, bottom: 5 }}>
                                         <CartesianGrid stroke="#e5e7eb" />
                                         <XAxis type="number" stroke="#6b7280" />
                                         <YAxis type="category" dataKey="feature" stroke="#6b7280" tick={{ fill: '#374151' }} />
                                         <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e5e7eb' }} />
-                                        <Legend />
-                                        <Bar dataKey="importance" fill="#ef4444" name="Contribution to Failure Risk" />
+                                        <Bar dataKey="importance" fill="#ef4444" name="Contribution to Risk" />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -143,6 +151,10 @@ function MotorDashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* --- MODALS --- */}
+            {isDriftModalOpen && <DriftAnalysisModal machineType="motor" featureName="Torque (Nm)" onClose={() => setIsDriftModalOpen(false)} />}
+            {isTicketModalOpen && <MaintenanceTicketModal machineId="Motor-MOT-007" details={`AI detected 'At Risk' status (Health Score: ${prediction?.health_score}). Suspected cause from XAI: High Torque & Tool Wear.`} onClose={() => setIsTicketModalOpen(false)} />}
         </div>
     );
 }
