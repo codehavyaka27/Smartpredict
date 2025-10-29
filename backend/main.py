@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="SmartPredict AI Platform API")
 
 # --- CORS Middleware Setup ---
-# This allows your React frontend (running on localhost:3000) to communicate with this backend
+# This allows your React frontend (running on localhost:3000) tjo communicate with this backend
 origins = [
     "http://localhost:3000",
 ]
