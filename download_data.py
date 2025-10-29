@@ -14,7 +14,7 @@ EXPECTED_SIZE_MB = 25
 
 def download_nasa_battery_data():
     """Downloads and unzips the NASA Battery Dataset with better error checking."""
-    print("--- Starting Data Setup ---")
+    print("--- Starting Data Setup and opening ---")
     DATA_PATH.mkdir(parents=True, exist_ok=True)
 
     # --- Step 1: Download the file (if needed) ---
